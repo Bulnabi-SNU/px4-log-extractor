@@ -36,7 +36,7 @@ ulogfilename = input("enter file name: ")
 messages_type = ['vehicle_status', 'vehicle_gps_position']
 
 #input the directory address that you want to save the csv file.
-#output_dir='/home/gracekim/px4-log-extractor/px4_log/taean/'
+#output_dir='/home/gracekim/px4-log-extractor/px4_log'
 output_dir = input("enter directory path to save the csv file: ")
 
 # Ensure the output directory exists
@@ -169,11 +169,10 @@ for i in range(len(gps_WP)) :
     wp_position = np.array(wp_position)
     WP.append(wp_position)
 
-wp_position_8 = np.array([0.0 ,0.0, -landing_height]) # WP8: 5m above vertiport
-wp_position_9 = np.array([0.0, 0.0, 0.0]) # WP9: vertiport
-
-WP.append(wp_position_8)
-WP.append(wp_position_9)
+wp_position_3 = np.array([0.0, 0.0, -landing_height]) # WP3: 5m above landing position
+wp_position_4 = np.array([0.0, 0.0, 0.0]) # WP4: landing position
+WP.append(wp_position_3)
+WP.append(wp_position_4)
 log(f'WP coordinates: {WP}\n')
 
 # Getting gps_timestamp info
@@ -188,6 +187,13 @@ for stamp in vehicle_status_dict['nav_state_timestamp'] :
         nav_state_timestamp.append(stamp)
 
 # Getting corresponding nav_state info
+'''
+nav_state = []
+for state in vehicle_status_dict['nav_state'] :
+    if state not in nav_state :
+        nav_state.append(state)
+'''
+
 nav_state = []
 for state in vehicle_status_dict['nav_state'] :
     if len(nav_state) == 0 :
@@ -196,18 +202,21 @@ for state in vehicle_status_dict['nav_state'] :
         if state != nav_state[-1] :
             nav_state.append(state)
 
+log(f"nav_state_timestamp: {nav_state_timestamp}")
+log(f"nav_state: {nav_state}")
 # getting gps_auto info comparing gps_timestamp & nav_state_timestamp
 # nav_state 3: auto mission mode, 4: auto loiter mode, 5: auto return to launch mode, 14: offboard, 17: auto takeoff, 18: auto land, 19: auto follow target, 20: auto precision land
 auto_states = {3, 4, 5, 14, 17, 18, 19, 20}
 for i in range(len(gps_timestamp)):
     gps_time = gps_timestamp[i]
     value_to_append = 0
-    for j in range(len(nav_state_timestamp) - 1):
+    for j in range(len(nav_state_timestamp)-1):
         if nav_state_timestamp[j] <= gps_time < nav_state_timestamp[j + 1]:
             if nav_state[j] in auto_states:
                 value_to_append = 1
             else :
                 value_to_append = 0
+
     gps_auto.append(value_to_append)
 
 
@@ -221,8 +230,7 @@ takeoff_time = takeoff_time[0]
 log(f"takeoff time: {takeoff_time}")
 
 # detect phase change
-nearby_acceptance_radius_mission = 30
-nearby_acceptance_radius_landing = 3
+nearby_acceptance_radius_mission = 3
 
 # estimate horizontal error & vertical error
 horizontal_error_dict = {}
@@ -253,7 +261,7 @@ for i in range(len(gps_timestamp)):
         log(f"{gps_auto[i]}\t{latitude[i]:.6f}\t{longitude[i]:.6f}\t{(altitude[i]-home_position_gps[2]):.6f}\t{utc_year[i]}\t{utc_month[i]}\t{utc_day[i]}\t{utc_hour[i]}\t{utc_minute[i]}\t{utc_sec[i]}\t{utc_ms[i]}\t{phase}\n")
 
     # calculate phase by error info
-    elif phase in range(1, 8):
+    elif phase in range(1, 4):
         if np.linalg.norm(local_pos - waypoint) >= nearby_acceptance_radius_mission:
             if len(error_dict) == 0:
                 log(f"{gps_auto[i]}\t{latitude[i]:.6f}\t{longitude[i]:.6f}\t{(altitude[i]-home_position_gps[2]):.6f}\t{utc_year[i]}\t{utc_month[i]}\t{utc_day[i]}\t{utc_hour[i]}\t{utc_minute[i]}\t{utc_sec[i]}\t{utc_ms[i]}\t{phase}\n")
@@ -264,8 +272,8 @@ for i in range(len(gps_timestamp)):
                 error_indices = list(error_dict.keys())
                 log(f"error_dict: {error_dict}")
                 
-                horizontal_min_indices = find_keys_below_threshold(horizontal_error_dict, 2)
-                vertical_min_indices = find_keys_below_threshold(vertical_error_dict, 4)
+                horizontal_min_indices = find_keys_below_threshold(horizontal_error_dict, 2/10)
+                vertical_min_indices = find_keys_below_threshold(vertical_error_dict, 4/10)
 
                 min_indices = intersection(horizontal_min_indices, vertical_min_indices)
 
@@ -279,8 +287,8 @@ for i in range(len(gps_timestamp)):
                             errors.append(error_dict[idx])
 
                 else :
-                    horizontal_min_indices = find_keys_below_threshold(horizontal_error_dict, 4)
-                    vertical_min_indices = find_keys_below_threshold(vertical_error_dict, 8)
+                    horizontal_min_indices = find_keys_below_threshold(horizontal_error_dict, 4/10)
+                    vertical_min_indices = find_keys_below_threshold(vertical_error_dict, 8/10)
                     min_indices = intersection(horizontal_min_indices, vertical_min_indices)
                     if min_indices != [] :
                         log(f"min_indices (4,8): {min_indices}")
@@ -292,8 +300,8 @@ for i in range(len(gps_timestamp)):
                                 errors.append(error_dict[idx])
 
                     else :
-                        horizontal_min_indices = find_keys_below_threshold(horizontal_error_dict, 6)
-                        vertical_min_indices = find_keys_below_threshold(vertical_error_dict, 12)
+                        horizontal_min_indices = find_keys_below_threshold(horizontal_error_dict, 6/10)
+                        vertical_min_indices = find_keys_below_threshold(vertical_error_dict, 12/10)
                         min_indices = intersection(horizontal_min_indices, vertical_min_indices)
                         if min_indices != [] :
                             log(f"min_indices (6,12): {min_indices}")
@@ -347,101 +355,6 @@ for i in range(len(gps_timestamp)):
             vertical_error_dict[i] = vertical_error
             error_dict[i] = error
     
-    # calculate phase by error info
-    elif phase == 8:
-        if np.linalg.norm(local_pos - waypoint) >= nearby_acceptance_radius_landing:
-            if len(error_dict) == 0:
-                log(f"{gps_auto[i]}\t{latitude[i]:.6f}\t{longitude[i]:.6f}\t{(altitude[i]-home_position_gps[2]):.6f}\t{utc_year[i]}\t{utc_month[i]}\t{utc_day[i]}\t{utc_hour[i]}\t{utc_minute[i]}\t{utc_sec[i]}\t{utc_ms[i]}\t{phase}\n")
-            
-            elif len(error_dict) > 0:
-                
-                error_list = list(error_dict.values())
-                error_indices = list(error_dict.keys())
-                log(f"error_dict: {error_dict}")
-                
-                horizontal_min_indices = find_keys_below_threshold(horizontal_error_dict, 2)
-                vertical_min_indices = find_keys_below_threshold(vertical_error_dict, 4)
-
-                min_indices = intersection(horizontal_min_indices, vertical_min_indices)
-
-                if min_indices != [] : 
-                    log(f"min_indices (2,4): {min_indices}")
-                    if len(min_indices) == 1 :
-                        errors = [error_dict[min_indices[0]]]
-                    else :
-                        errors = []
-                        for idx in min_indices :
-                            errors.append(error_dict[idx])
-
-                else :
-                    horizontal_min_indices = find_keys_below_threshold(horizontal_error_dict, 4)
-                    vertical_min_indices = find_keys_below_threshold(vertical_error_dict, 8)
-                    min_indices = intersection(horizontal_min_indices, vertical_min_indices)
-                    if min_indices != [] :
-                        log(f"min_indices (4,8): {min_indices}")
-                        if len(min_indices) == 1 :
-                            errors = [error_dict[min_indices[0]]]
-                        else :
-                            errors = []
-                            for idx in min_indices :
-                                errors.append(error_dict[idx])
-
-                    else :
-                        horizontal_min_indices = find_keys_below_threshold(horizontal_error_dict, 6)
-                        vertical_min_indices = find_keys_below_threshold(vertical_error_dict, 12)
-                        min_indices = intersection(horizontal_min_indices, vertical_min_indices)
-                        if min_indices != [] :
-                            log(f"min_indices (6,12): {min_indices}")
-                            if len(min_indices) == 1 :
-                                errors = [error_dict[min_indices[0]]]
-                            else :
-                                errors = []
-                                for idx in min_indices :
-                                    errors.append(error_dict[idx])
-
-                        else :
-                            errors = error_list
-                            log(f"min_indices: {min_indices}")
-
-                min_idx = find_keys_by_value(error_dict, min(errors))
-                min_idx = min_idx[0]
-
-                log(f"horizontal error dict: {horizontal_error_dict}")
-                log(f"vertical error dict: {vertical_error_dict}")
-                log(f"errors: {errors}")
-                log(f"min idx: {min_idx}")
-                log(f"error indices: {error_indices}")
-
-                for idx in error_indices: 
-                               
-                    vertical_error = np.abs(vertical_error_dict[min_idx])
-                    horizontal_error = np.abs(horizontal_error_dict[min_idx])
-                    
-                    if idx < min_idx:
-                        log(f"{gps_auto[idx]}\t{latitude[idx]:.6f}\t{longitude[idx]:.6f}\t{(altitude[idx]-home_position_gps[2]):.6f}\t{utc_year[idx]}\t{utc_month[idx]}\t{utc_day[idx]}\t{utc_hour[idx]}\t{utc_minute[idx]}\t{utc_sec[idx]}\t{utc_ms[idx]}\t{phase}\n")
-                    elif idx >= min_idx:
-                        log(f"{gps_auto[idx]}\t{latitude[idx]:.6f}\t{longitude[idx]:.6f}\t{(altitude[idx]-home_position_gps[2]):.6f}\t{utc_year[idx]}\t{utc_month[idx]}\t{utc_day[idx]}\t{utc_hour[idx]}\t{utc_minute[idx]}\t{utc_sec[idx]}\t{utc_ms[idx]}\t{phase+1}\n")
-
-                
-                log(f"---------------------------------------------")
-                log(f"vertical error: {vertical_error}, horizontal error: {horizontal_error}")
-                log(f"---------------------------------------------")
-                log(f"{gps_auto[i]}\t{latitude[i]:.6f}\t{longitude[i]:.6f}\t{(altitude[i]-home_position_gps[2]):.6f}\t{utc_year[i]}\t{utc_month[i]}\t{utc_day[i]}\t{utc_hour[i]}\t{utc_minute[i]}\t{utc_sec[i]}\t{utc_ms[i]}\t{phase+1}\n")
-                phase += 1
-
-            #horizontal_error_list = []
-            #vertical_error_list = []
-            horizontal_error_dict = {}
-            vertical_error_dict = {}
-            error_dict = {}
-
-        elif np.linalg.norm(local_pos - waypoint) <= nearby_acceptance_radius_landing:
-            #horizontal_error_list.append(horizontal_error)
-            #vertical_error_list.append(vertical_error)
-            horizontal_error_dict[i] = horizontal_error
-            vertical_error_dict[i] = vertical_error
-            error_dict[i] = error
-    
     # phase 9 until end of flight
-    elif phase == 9 :
+    elif phase == 4:
         log(f"{gps_auto[i]}\t{latitude[i]:.6f}\t{longitude[i]:.6f}\t{(altitude[i]-home_position_gps[2]):.6f}\t{utc_year[i]}\t{utc_month[i]}\t{utc_day[i]}\t{utc_hour[i]}\t{utc_minute[i]}\t{utc_sec[i]}\t{utc_ms[i]}\t{phase}\n")
