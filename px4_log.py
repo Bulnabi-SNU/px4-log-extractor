@@ -36,7 +36,7 @@ ulogfilename = input("enter file name: ")
 messages_type = ['vehicle_status', 'vehicle_gps_position']
 
 #input the directory address that you want to save the csv file.
-#output_dir='/home/gracekim/px4_log/'
+#output_dir='/home/gracekim/px4-log-extractor/px4_log'
 output_dir = input("enter directory path to save the csv file: ")
 
 # Ensure the output directory exists
@@ -247,13 +247,13 @@ for i in range(len(gps_timestamp)):
             phase = 0
         elif gps_timestamp[i] >= takeoff_time :
             phase = 1
-        log(f"{i}\t{gps_auto[i]}\t{latitude[i]:.6f}\t{longitude[i]:.6f}\t{(altitude[i]-home_position_gps[2]):.6f}\t{utc_year[i]}\t{utc_month[i]}\t{utc_day[i]}\t{utc_hour[i]}\t{utc_minute[i]}\t{utc_sec[i]}\t{utc_ms[i]}\t{phase}\n")
+        log(f"{gps_auto[i]}\t{latitude[i]:.6f}\t{longitude[i]:.6f}\t{(altitude[i]-home_position_gps[2]):.6f}\t{utc_year[i]}\t{utc_month[i]}\t{utc_day[i]}\t{utc_hour[i]}\t{utc_minute[i]}\t{utc_sec[i]}\t{utc_ms[i]}\t{phase}\n")
 
     # calculate phase by error info
     elif phase in range(1, 8):
         if np.linalg.norm(local_pos - waypoint) >= nearby_acceptance_radius_mission:
             if len(error_dict) == 0:
-                log(f"{i}\t{gps_auto[i]}\t{latitude[i]:.6f}\t{longitude[i]:.6f}\t{(altitude[i]-home_position_gps[2]):.6f}\t{utc_year[i]}\t{utc_month[i]}\t{utc_day[i]}\t{utc_hour[i]}\t{utc_minute[i]}\t{utc_sec[i]}\t{utc_ms[i]}\t{phase}\n")
+                log(f"{gps_auto[i]}\t{latitude[i]:.6f}\t{longitude[i]:.6f}\t{(altitude[i]-home_position_gps[2]):.6f}\t{utc_year[i]}\t{utc_month[i]}\t{utc_day[i]}\t{utc_hour[i]}\t{utc_minute[i]}\t{utc_sec[i]}\t{utc_ms[i]}\t{phase}\n")
             
             elif len(error_dict) > 0:
                 
